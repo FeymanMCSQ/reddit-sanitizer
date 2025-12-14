@@ -2,12 +2,28 @@
   "manifest_version": 3,
   "name": "Reddit Sanitizer",
   "version": "0.1.0",
-  "description": "Hard-whitelist Reddit to r/freelancers.",
-  "host_permissions": ["https://www.reddit.com/*", "https://reddit.com/*"],
+  "description": "Restrict Reddit to approved subreddits for focused use.",
+  "permissions": ["storage"],
+  "host_permissions": ["*://*.reddit.com/*", "*://reddit.com/*"],
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "content_scripts": [
     {
-      "matches": ["https://www.reddit.com/*", "https://reddit.com/*"],
-      "js": ["content.js"],
+      "matches": ["*://*.reddit.com/*", "*://reddit.com/*"],
+      "js": [
+        "src/config.js",
+        "src/gate.js",
+        "src/uiKill.css.js",
+        "src/railNuke.js",
+        "src/linkLock.js",
+        "src/clickGuard.js",
+        "src/banner.js",
+        "src/content.js"
+      ],
       "run_at": "document_start"
     }
   ]
