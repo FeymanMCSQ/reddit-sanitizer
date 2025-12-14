@@ -27,8 +27,8 @@
   }
 
   function homeUrl() {
-    const subs = config?.getAllowedSubsSync?.() || ['freelancers'];
-    const first = subs[0] || 'freelancers';
+    const subs = config?.getAllowedSubsSync?.() || ['freelance'];
+    const first = subs[0] || 'freelance';
     return `https://${CANONICAL_HOST}/r/${first}/`;
   }
 
@@ -43,11 +43,11 @@
     // Force canonical host
     if (url.hostname !== CANONICAL_HOST) return false;
 
-    // Enforce whitelist (fallback to strict freelancers if config missing)
+    // Enforce whitelist (fallback to strict freelance if config missing)
     if (config?.isAllowedPath) return config.isAllowedPath(url.pathname);
 
     const p = safeNormalize(url.pathname);
-    return p === '/r/freelancers' || p.startsWith('/r/freelancers/');
+    return p === '/r/freelance' || p.startsWith('/r/freelance/');
   }
 
   function styleBlockedLink(a) {

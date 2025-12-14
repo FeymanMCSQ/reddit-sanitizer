@@ -42,9 +42,9 @@
     if (config?.isAllowedPath) {
       if (!config.isAllowedPath(url.pathname)) return true;
     } else {
-      // if config missing, stay strict to freelancers
+      // if config missing, stay strict to freelance
       const p = (url.pathname || '').replace(/\/+$/, '') || '/';
-      if (!(p === '/r/freelancers' || p.startsWith('/r/freelancers/')))
+      if (!(p === '/r/freelance' || p.startsWith('/r/freelance/')))
         return true;
     }
 

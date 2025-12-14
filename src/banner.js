@@ -1,5 +1,5 @@
 (() => {
-  const ALLOWED_SUB = 'freelancers';
+  const ALLOWED_SUB = 'freelance';
   const BANNER_ID = 'rs-restricted-banner';
   const STORAGE_KEY = 'rs_last_redirect_reason';
 

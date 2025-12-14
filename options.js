@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'allowedSubs';
-const DEFAULT_ALLOWED = ['freelancers'];
+const DEFAULT_ALLOWED = ['freelance'];
 
 const $subs = document.getElementById('subs');
 const $save = document.getElementById('save');
