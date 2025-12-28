@@ -3,6 +3,7 @@
   "name": "Reddit Sanitizer",
   "version": "0.1.0",
   "description": "Restrict Reddit to approved subreddits for focused use.",
+  "action": { "default_popup": "src/popup.html" },
   "permissions": ["storage"],
   "host_permissions": ["*://*.reddit.com/*", "*://reddit.com/*"],
   "options_page": "options.html",

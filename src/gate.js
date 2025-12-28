@@ -163,6 +163,10 @@
     });
   }
 
+  if (config?.loadTempAllowedSubs) {
+    config.loadTempAllowedSubs().then(() => enforce());
+  }
+
   window.RedditSanitizer = window.RedditSanitizer || {};
   window.RedditSanitizer.gate = {
     enforce,
