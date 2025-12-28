@@ -1,18 +1,27 @@
+// src/clickGuard.js
 (() => {
   const CANONICAL_HOST = 'www.reddit.com';
-  const config = window.RedditSanitizer?.config;
+
+  function getConfig() {
+    return window.RedditSanitizer?.config;
+  }
 
   function isRedditHost(hostname) {
     return hostname === 'reddit.com' || hostname.endsWith('.reddit.com');
   }
 
-  function safeNormalize(pathname) {
+  function normalizePath(pathname) {
+    const config = getConfig();
     if (config?.normalizePath) return config.normalizePath(pathname);
     return (pathname || '').replace(/\/+$/, '') || '/';
   }
 
   function isExplicitFeedPath(pathname) {
-    const p = safeNormalize(pathname).toLowerCase();
+    const config = getConfig();
+    if (config?.isExplicitFeedPath) return config.isExplicitFeedPath(pathname);
+
+    // fallback (strict)
+    const p = normalizePath(pathname).toLowerCase();
     return (
       p === '/' ||
       p === '/best' ||
@@ -27,27 +36,33 @@
   }
 
   function homeUrl() {
-    const subs = config?.getAllowedSubsSync?.() || ['freelancers'];
-    const first = subs[0] || 'freelancers';
+    const config = getConfig();
+    const subs = config?.getAllowedSubsSync?.() || ['freelance'];
+    const first = subs[0] || 'freelance';
     return `https://${CANONICAL_HOST}/r/${first}/`;
   }
 
   function isAllowedUrl(url) {
-    // Block explicit algorithmic feed entry points
-    if (isRedditHost(url.hostname) && isExplicitFeedPath(url.pathname))
-      return false;
-
-    // External allowed by default (flip later if you want)
+    // External links allowed by default
     if (!isRedditHost(url.hostname)) return true;
+
+    // Block explicit algorithmic feeds (always)
+    if (isExplicitFeedPath(url.pathname)) return false;
 
     // Force canonical host
     if (url.hostname !== CANONICAL_HOST) return false;
 
-    // Enforce whitelist (fallback to strict freelancers if config missing)
-    if (config?.isAllowedPath) return config.isAllowedPath(url.pathname);
+    const config = getConfig();
 
-    const p = safeNormalize(url.pathname);
-    return p === '/r/freelancers' || p.startsWith('/r/freelancers/');
+    // Preferred unified policy
+    if (config?.isAllowedRedditPath) {
+      return config.isAllowedRedditPath(url.pathname);
+    }
+
+    // Fallback: strict to default subreddit only
+    const p = normalizePath(url.pathname).toLowerCase();
+    const base = '/r/freelance';
+    return p === base || p.startsWith(base + '/');
   }
 
   function styleBlockedLink(a) {
@@ -64,7 +79,7 @@
       'click',
       (e) => {
         if (e.defaultPrevented) return;
-        if (e.button !== 0) return; // left click
+        if (e.button !== 0) return; // left click only
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
         const target = e.target;
@@ -90,7 +105,7 @@
           styleBlockedLink(a);
 
           window.RedditSanitizer?.banner?.setRedirectReason?.(
-            `Blocked click: ${url.pathname}`
+            `Blocked click: ${normalizePath(url.pathname)}`
           );
 
           queueMicrotask(() => window.location.replace(homeUrl()));
@@ -99,7 +114,7 @@
       true
     );
 
-    // Middle-click (open in new tab) guard
+    // Middle-click guard (open in new tab)
     document.addEventListener(
       'auxclick',
       (e) => {

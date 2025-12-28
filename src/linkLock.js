@@ -1,30 +1,38 @@
+// src/linkLock.js
 (() => {
   const CANONICAL_HOST = 'www.reddit.com';
   const FLAG_LINK = 'data-rs-link-locked';
 
-  const config = window.RedditSanitizer?.config;
+  function getConfig() {
+    return window.RedditSanitizer?.config;
+  }
 
   function isRedditHost(hostname) {
     return hostname === 'reddit.com' || hostname.endsWith('.reddit.com');
   }
 
-  function isExplicitFeedPath(pathname) {
-    const norm = config?.normalizePath
-      ? config.normalizePath(pathname)
-      : pathname || '';
-    const p = (norm || '').replace(/\/+$/, '') || '/';
-    const lower = p.toLowerCase();
+  function normalizePath(pathname) {
+    const config = getConfig();
+    if (config?.normalizePath) return config.normalizePath(pathname);
+    return (pathname || '').replace(/\/+$/, '') || '/';
+  }
 
+  function isExplicitFeedPath(pathname) {
+    const config = getConfig();
+    if (config?.isExplicitFeedPath) return config.isExplicitFeedPath(pathname);
+
+    // fallback
+    const p = normalizePath(pathname).toLowerCase();
     return (
-      lower === '/' ||
-      lower === '/best' ||
-      lower === '/hot' ||
-      lower === '/new' ||
-      lower === '/top' ||
-      lower === '/r/all' ||
-      lower === '/r/popular' ||
-      lower.startsWith('/r/all/') ||
-      lower.startsWith('/r/popular/')
+      p === '/' ||
+      p === '/best' ||
+      p === '/hot' ||
+      p === '/new' ||
+      p === '/top' ||
+      p === '/r/all' ||
+      p === '/r/popular' ||
+      p.startsWith('/r/all/') ||
+      p.startsWith('/r/popular/')
     );
   }
 
@@ -32,23 +40,23 @@
     // only police reddit navigation
     if (!isRedditHost(url.hostname)) return false;
 
-    // block explicit feed endpoints no matter what
+    // block explicit feeds always
     if (isExplicitFeedPath(url.pathname)) return true;
 
-    // force everything to stay within canonical host
+    // force canonical host
     if (url.hostname !== CANONICAL_HOST) return true;
 
-    // enforce whitelist via config (default strict)
-    if (config?.isAllowedPath) {
-      if (!config.isAllowedPath(url.pathname)) return true;
-    } else {
-      // if config missing, stay strict to freelance
-      const p = (url.pathname || '').replace(/\/+$/, '') || '/';
-      if (!(p === '/r/freelance' || p.startsWith('/r/freelance/')))
-        return true;
+    const config = getConfig();
+
+    // preferred unified policy
+    if (config?.isAllowedRedditPath) {
+      return !config.isAllowedRedditPath(url.pathname);
     }
 
-    return false;
+    // fallback: strict to default subreddit only
+    const p = normalizePath(url.pathname).toLowerCase();
+    const base = '/r/freelance';
+    return !(p === base || p.startsWith(base + '/'));
   }
 
   function styleBlockedLink(a) {
@@ -70,26 +78,27 @@
     try {
       url = new URL(href, location.origin);
     } catch {
-      return;
-    }
-
-    const isSubredditLink = url.pathname.startsWith('/r/');
-    const isFeedEntry =
-      isRedditHost(url.hostname) && isExplicitFeedPath(url.pathname);
-
-    // If it's neither subreddit wander nor feed entry nor disallowed, mark and skip
-    if (!isSubredditLink && !isFeedEntry && !shouldBlockUrl(url)) {
+      // If URL parsing fails, don’t touch it
       a.setAttribute(FLAG_LINK, '1');
       return;
     }
 
-    if (shouldBlockUrl(url)) {
-      a.removeAttribute('href'); // kills left-click/middle-click/open-in-new-tab
+    // External links are allowed; mark as scanned and skip
+    if (!isRedditHost(url.hostname)) {
       a.setAttribute(FLAG_LINK, '1');
-      styleBlockedLink(a);
-    } else {
-      a.setAttribute(FLAG_LINK, '1');
+      return;
     }
+
+    // If it’s allowed, mark and keep it intact
+    if (!shouldBlockUrl(url)) {
+      a.setAttribute(FLAG_LINK, '1');
+      return;
+    }
+
+    // Block it
+    a.removeAttribute('href'); // kills click + middle-click + open-in-new-tab
+    a.setAttribute(FLAG_LINK, '1');
+    styleBlockedLink(a);
   }
 
   function scanAndLockLinks(root = document) {
