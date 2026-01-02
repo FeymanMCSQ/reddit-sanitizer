@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Debug Extension Storage</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    .section {
+      margin: 20px 0;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Reddit Sanitizer - Storage Debug</h1>
+  
+  <div class="section">
+    <h2>Actions</h2>
+    <button id="checkStorage">Check Storage</button>
+    <button id="clearTemp">Clear Temp Storage</button>
+  </div>
+
+  <div class="section">
+    <h2>Local Storage (tempAllowedSubs)</h2>
+    <pre id="localOutput">Click "Check Storage" to view...</pre>
+  </div>
+
+  <div class="section">
+    <h2>Sync Storage (allowedSubs)</h2>
+    <pre id="syncOutput">Click "Check Storage" to view...</pre>
+  </div>
+
+  <div class="section">
+    <h2>Combined Allowed Subs</h2>
+    <pre id="combinedOutput">Click "Check Storage" to view...</pre>
+  </div>
+
+  <script>
+    const TEMP_KEY = 'tempAllowedSubs';
+    const STORAGE_KEY = 'allowedSubs';
+
+    function sanitizeSub(s) {
+      return String(s || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^\/?r\//, '')
+        .replace(/^r\//, '')
+        .replace(/[^a-z0-9_]/g, '');
+    }
+
+    function sanitizeTemp(list) {
+      const arr = Array.isArray(list) ? list : [];
+      const now = Date.now();
+
+      const cleaned = arr
+        .map((x) => {
+          const sub = String(x?.sub ?? '')
+            .trim()
+            .toLowerCase()
+            .replace(/^\/?r\//, '');
+          const expiresAt = Number(x?.expiresAt ?? 0);
+          if (!sub || !Number.isFinite(expiresAt)) return null;
+          if (expiresAt <= now) return null;
+          return { sub, expiresAt, timeRemaining: Math.round((expiresAt - now) / 1000 / 60) + ' min' };
+        })
+        .filter(Boolean);
+
+      return cleaned;
+    }
+
+    document.getElementById('checkStorage').addEventListener('click', async () => {
+      // Check local storage
+      chrome.storage.local.get([TEMP_KEY], (localRes) => {
+        const raw = localRes[TEMP_KEY] || [];
+        const cleaned = sanitizeTemp(raw);
+        
+        document.getElementById('localOutput').textContent = 
+          'Raw:\n' + JSON.stringify(raw, null, 2) + 
+          '\n\nCleaned:\n' + JSON.stringify(cleaned, null, 2);
+      });
+
+      // Check sync storage
+      chrome.storage.sync.get([STORAGE_KEY], (syncRes) => {
+        const subs = syncRes[STORAGE_KEY] || [];
+        document.getElementById('syncOutput').textContent = JSON.stringify(subs, null, 2);
+      });
+
+      // Check combined
+      chrome.storage.local.get([TEMP_KEY], (localRes) => {
+        chrome.storage.sync.get([STORAGE_KEY], (syncRes) => {
+          const tempSubs = sanitizeTemp(localRes[TEMP_KEY] || []).map(x => x.sub);
+          const permSubs = syncRes[STORAGE_KEY] || [];
+          const combined = Array.from(new Set([...permSubs, ...tempSubs]));
+          
+          document.getElementById('combinedOutput').textContent = 
+            'Permanent: ' + JSON.stringify(permSubs) + '\n' +
+            'Temporary: ' + JSON.stringify(tempSubs) + '\n' +
+            'Combined: ' + JSON.stringify(combined);
+        });
+      });
+    });
+
+    document.getElementById('clearTemp').addEventListener('click', () => {
+      chrome.storage.local.set({ [TEMP_KEY]: [] }, () => {
+        alert('Temp storage cleared!');
+        document.getElementById('checkStorage').click();
+      });
+    });
+
+    // Auto-check on load
+    window.addEventListener('load', () => {
+      document.getElementById('checkStorage').click();
+    });
+  </script>
+</body>
+</html>
