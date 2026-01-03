@@ -1,4 +1,4 @@
-const UNLOCK_MS = 3 * 60 * 1000; // 3 minutes
+const UNLOCK_MS = 1000; // 3 minutes
 const TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const TEMP_KEY = 'tempAllowedSubs';
 

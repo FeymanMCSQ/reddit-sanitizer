@@ -151,20 +151,28 @@
     }, 500);
   }
 
-  // Enforce immediately, then re-enforce once storage loads
-  const first = enforce();
-  log('First enforce result:', first);
-
+  // Wait for BOTH permanent and temp subs to load before first enforcement
+  // This prevents blocking temp-allowed subs due to race condition
   const config = getConfig();
+  
+  const loadPromises = [];
   if (config?.loadAllowedSubs) {
-    config.loadAllowedSubs().then(() => {
-      log('Storage loaded; re-enforcing');
-      enforce();
-    });
+    loadPromises.push(config.loadAllowedSubs());
+  }
+  if (config?.loadTempAllowedSubs) {
+    loadPromises.push(config.loadTempAllowedSubs());
   }
 
-  if (config?.loadTempAllowedSubs) {
-    config.loadTempAllowedSubs().then(() => enforce());
+  if (loadPromises.length > 0) {
+    Promise.all(loadPromises).then(() => {
+      log('All storage loaded (permanent + temp); enforcing');
+      const first = enforce();
+      log('First enforce result:', first);
+    });
+  } else {
+    // No storage APIs available, enforce immediately with defaults
+    const first = enforce();
+    log('First enforce result (no storage):', first);
   }
 
   window.RedditSanitizer = window.RedditSanitizer || {};
